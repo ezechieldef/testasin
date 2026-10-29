@@ -198,6 +198,12 @@ Les paramètres de connexion proviennent de la configuration PostgreSQL Laravel,
 REPAIR_TEST_DATABASE=testasin php artisan test --compact
 ```
 
+### Consigne 6 — Rapport d’incident
+
+Le [rapport d’incident INC-201](RAPPORT_INCIDENT_INC-201.md) présente la chronologie reconstituée, la cause racine, l’impact chiffré, les corrections et les actions préventives. Il explique les liens avec INC-202, INC-203 et INC-206, et distingue les résultats vérifiés localement du déploiement et des communications en production, qui ne sont pas attestés.
+
+Les commandes de reproduction des preuves et de validation sont indiquées dans le rapport.
+
 ### Vérification générale
 
 ```sh
