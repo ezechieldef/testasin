@@ -1,0 +1,28 @@
+2026-11-19T08:00:00.100Z INFO [req:reg1] 127.0.0.1 POST /api/inscriptions -> 201 (100 ms) concours=DOUANES centre=P npi=0012345678 numero=P-0001
+2026-11-19T08:00:01.100Z INFO [req:reg2] 127.0.0.1 POST /api/inscriptions -> 201 (100 ms) concours=DOUANES centre=P npi=0012345678 numero=P-0001
+2026-11-19T08:00:02.100Z INFO [req:reg3] 127.0.0.1 POST /api/inscriptions -> 201 (100 ms) concours=IMPOTS centre=P npi=0022345678 numero=P-0001
+2026-11-19T08:00:03.100Z INFO [req:reg4] 127.0.0.1 POST /api/inscriptions -> 201 (100 ms) concours=DOUANES centre=C npi=0012345678 numero=P-0001
+2026-11-19T08:00:04.100Z INFO [req:reg5] 127.0.0.1 POST /api/inscriptions -> 201 (100 ms) concours=IMPOTS centre=C npi=0012345678 numero=C-0002
+2026-11-19T08:00:05.100Z INFO [req:reg6] 127.0.0.1 POST /api/inscriptions -> 409 (100 ms) concours=DOUANES centre=P npi=0012345678 numero=P-0001 erreur="Vous êtes déjà inscrit à ce concours."
+2026-11-19T23:59:59.500Z INFO [req:slow1] appel identite GET /identite/0012345678 -> 200 (5000 ms)
+2026-11-19T23:59:59.500Z INFO [req:slow1] 127.0.0.1 GET /api/inscriptions/1/convocation -> 200 (9000 ms)
+2026-11-19T23:59:59.000Z WARN [req:fast] appel identite GET /identite/0012345678 -> 200 (4999 ms)
+2026-11-20T00:00:06.000Z WARN [req:slow2] appel identite GET /identite/0012345678 -> 404 (6000 ms)
+2026-11-20T00:00:05.000Z WARN [req:slow3] appel identite GET /identite/0012345678 -> 200 (7000 ms)
+2026-11-20T00:00:05.030Z INFO [req:slow3] 127.0.0.1 POST /api/inscriptions -> 201 (7030 ms) concours=TRESOR centre=N npi=0032345678 numero=N-0001
+2026-11-20T00:10:00.000Z WARN [req:slow4] appel identite GET /identite/0012345678 -> 200 (5000 ms)
+2026-11-20T00:20:00.000Z INFO [req:list1] 127.0.0.1 GET /api/centres/P/inscrits?concours=TRESOR -> 200 (1000 ms) lignes=1
+2026-11-20T00:21:00.000Z INFO [req:list2] 127.0.0.1 GET /api/centres/P/inscrits?concours=DOUANES -> 200 (3001 ms) lignes=3
+2026-11-20T00:22:00.000Z ERROR [req:list3] 127.0.0.1 GET /api/centres/P/inscrits?concours=TRESOR -> 500 (9000 ms)
+2026-11-20T00:23:00.000Z INFO [req:list4] 127.0.0.1 GET /api/centres/C/inscrits?concours=TRESOR -> 200 (2000 ms) lignes=2
+2026-11-20T22:59:00.010Z INFO [req:close1] 127.0.0.1 POST /api/inscriptions -> 409 (20 ms) concours=TRESOR centre=P npi=0042345678 erreur="Inscriptions closes pour ce concours."
+2026-11-20T22:59:00.010Z INFO [req:close2] 127.0.0.1 POST /api/inscriptions -> 409 (10 ms) concours=TRESOR centre=P npi=0042345678 erreur="Inscriptions closes pour ce concours."
+2026-11-20T22:59:00.020Z INFO [req:close3] 127.0.0.1 POST /api/inscriptions -> 409 (10 ms) concours=TRESOR centre=P npi=0052345678 erreur="Inscriptions closes pour ce concours."
+2026-11-20T22:58:00.000Z INFO [req:close4] 127.0.0.1 POST /api/inscriptions -> 409 (10 ms) concours=DOUANES centre=P npi=0052345678 erreur="Inscriptions closes pour ce concours."
+2026-11-20T22:58:00.000Z INFO [req:close5] 127.0.0.1 POST /api/inscriptions -> 409 (10 ms) concours=TRESOR centre=P npi=0052345678 erreur="Ce centre d'examen est complet."
+2026-11-19T08:05:00.100Z INFO [req:age1] 127.0.0.1 POST /api/inscriptions -> 409 (100 ms) concours=DOUANES centre=P npi=0062345678 naissance=1991-01-01 erreur="Âge limite dépassé : 35 ans au 31 décembre de l'année du concours."
+2026-11-19T08:05:00.200Z INFO [req:age2] 127.0.0.1 POST /api/inscriptions -> 409 (100 ms) concours=DOUANES centre=P npi=0072345678 naissance=1991-12-31 erreur="Âge limite dépassé : 35 ans au 31 décembre de l'année du concours."
+2026-11-19T08:05:00.300Z INFO [req:age3] 127.0.0.1 POST /api/inscriptions -> 409 (100 ms) concours=DOUANES centre=P npi=0082345678 naissance=1990-12-31 erreur="Âge limite dépassé : 35 ans au 31 décembre de l'année du concours."
+2026-11-19T08:05:00.400Z INFO [req:age4] 127.0.0.1 POST /api/inscriptions -> 409 (100 ms) concours=DOUANES centre=P npi=0092345678 naissance=1992-02-29 erreur="Âge limite dépassé : 35 ans au 31 décembre de l'année du concours."
+2026-11-19T08:05:00.500Z INFO [req:age5] 127.0.0.1 POST /api/inscriptions -> 409 (100 ms) concours=DOUANES centre=P npi=0062345678 naissance=1991-01-01 erreur="Âge limite dépassé : 35 ans au 31 décembre de l'année du concours."
+2026-11-19T08:05:00.600Z INFO [req:age6] 127.0.0.1 POST /api/inscriptions -> 409 (100 ms) concours=DOUANES centre=P npi=0002345678 naissance=2030-01-01 erreur="Âge limite dépassé : 35 ans au 31 décembre de l'année du concours."
