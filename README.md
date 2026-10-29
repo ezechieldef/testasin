@@ -204,6 +204,10 @@ Le [rapport d’incident INC-201](RAPPORT_INCIDENT_INC-201.md) présente la chro
 
 Les commandes de reproduction des preuves et de validation sont indiquées dans le rapport.
 
+### Bonus — Incident non signalé
+
+Le document [INCIDENT_NON_SIGNALE.md](INCIDENT_NON_SIGNALE.md) décrit l’injection SQL observée sur la recherche par nom, les données potentiellement exposées, les limites des preuves et les mesures immédiates proposées. Les actions de confinement, de correction et de notification y sont distinguées des constats du journal.
+
 ### Vérification générale
 
 ```sh
