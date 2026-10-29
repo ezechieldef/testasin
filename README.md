@@ -1,26 +1,71 @@
-# Testasin
+# Étude de cas TMA DEP/ASIN 2026 — Inscriptions aux concours
 
-Application Laravel 13 avec vues Blade, Tailwind CSS et PostgreSQL.
+**Candidat : DENAKPO EZECHIEL AHOUANDJINOU**
+
+[Dépôt GitHub](https://github.com/ezechieldef/testasin) · [Énoncé](etude_de_cas_pratique.md) · [Validation du rendu](VALIDATION_RENDU.md)
+
+Ce dépôt contient la priorisation des incidents, un analyseur de journal en ligne de commande, les diagnostics reproductibles, une API Laravel 13 d’inscription corrigée, ses tests et un script PostgreSQL de réparation rejouable. Les rapports distinguent les faits observés, les résultats locaux et les actions à mener en production.
+
+## Parcours de lecture du jury
+
+| Consigne | Livrable | Point d’entrée / vérification |
+| --- | --- | --- |
+| 1 — Prioriser avant analyse | [INTERVENTION.md](INTERVENTION.md) | Premier commit `6fc40f5`, contenant uniquement ce fichier ; INC-208 identifié comme conforme. |
+| 2 — Analyser le journal | [ProductionLogAnalyzer](app/Services/ProductionLogAnalyzer.php) et [commande Artisan](app/Console/Commands/AnalyzeProductionLog.php) | `php artisan journal:analyser journal_production.log` ; `--json` pour les détails. |
+| 3 — Causes et liens | [ANALYSE_INCIDENTS.md](ANALYSE_INCIDENTS.md) | `php artisan incidents:diagnostiquer journal_production.log` et `php artisan journal:tracer journal_production.log --requete=a061413f`. |
+| 4 — Corriger et tester | [RegisterInscription](app/Services/RegisterInscription.php), [IdentityClient](app/Services/IdentityClient.php), [tests fonctionnels](tests/Feature/RegisterInscriptionTest.php) et [concurrence](tests/Feature/ConcurrentInscriptionTest.php) | `POST /api/inscriptions` ; tests de capacité, unicité, âge, clôture et délai externe. |
+| 5 — Réparer les données | [Script SQL](database/reparer_inscriptions.sql) et [REPARATION_DONNEES.md](REPARATION_DONNEES.md) | Application sur une copie de l’export, rejeu, contrôles et arbitrage de Lokossa. |
+| 6 — Rapport d’incident | [RAPPORT_INCIDENT_INC-201.md](RAPPORT_INCIDENT_INC-201.md) | Chronologie, cause, impact chiffré, correction et prévention. |
+| Bonus — Incident non signalé | [INCIDENT_NON_SIGNALE.md](INCIDENT_NON_SIGNALE.md) | Injection SQL observée, exposition possible et mesures immédiates proposées. |
+
+## Résultats de référence
+
+Sur le journal fourni : **10 numéros réutilisés**, **7 doubles candidatures**, **60 requêtes touchées par une identification lente**, **147 refus de clôture injustifiés pour 100 NPI distincts** et **36 refus d’âge injustifiés**. Les moyennes et maxima des listes sont calculés pour les cinq centres.
+
+La reprise locale a archivé et retiré 7 doubles inscriptions, puis réattribué 15 numéros : 6 393 inscriptions restent actives. Les **307 inscriptions de Lokossa sont conservées pour une capacité de 300** ; les sept places manquantes nécessitent une décision métier. Les résultats complets, leur périmètre et leurs limites figurent dans les documents correspondants.
 
 ## Prérequis
 
-PHP 8.4 avec `pdo_pgsql`, Composer, Node.js/npm et PostgreSQL.
+- PHP **8.4**, Composer et les extensions validées par `composer check-platform-reqs` ; `pdo_sqlite` pour les tests par défaut, `pdo_pgsql` pour PostgreSQL et cURL pour le transport HTTP vérifié.
+- PostgreSQL **18** et ses outils `psql`, `createdb`, `pg_dump`, `pg_restore` pour la reprise et les tests SQL ; un compte autorisé à créer des schémas temporaires pour les tests PostgreSQL.
+- Node.js **20.19 ou supérieur compatible avec Vite 8** : `20.19+` sur la branche 20 ou `22.12+` ; npm. Ils servent à compiler les ressources de la page web, pas à exécuter l’analyse du journal.
+
+L’environnement ayant servi à la validation est détaillé dans [VALIDATION_RENDU.md](VALIDATION_RENDU.md).
 
 ## Installation
 
 ```sh
+git clone https://github.com/ezechieldef/testasin.git
+cd testasin
 composer install
 cp .env.example .env
 php artisan key:generate
+composer check-platform-reqs
+```
+
+Les fichiers `journal_production.log` et `base_inscriptions.sql` sont les données d’entrée fournies séparément par le sujet : ils ne sont pas inclus dans le dépôt. Les placer à la racine ou adapter les chemins des commandes. Les fixtures synthétiques versionnées suffisent pour les tests automatisés.
+
+Essai immédiat sans base métier ni service externe :
+
+```sh
+php artisan journal:analyser tests/Fixtures/production-log.txt
+php artisan test --compact
+```
+
+Les tests fonctionnels utilisent SQLite en mémoire, les tests concurrents une base SQLite temporaire et les appels d’identité sont simulés, sauf un test de délai qui utilise un serveur local. Sans `REPAIR_TEST_DATABASE`, les tests SQL PostgreSQL sont explicitement ignorés ; leur activation est décrite plus bas. Aucun de ces tests ne nécessite le journal réel.
+
+Pour utiliser la base du sujet, créer une **base de travail distincte**, importer l’export avec `psql`, puis configurer `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME` et `DB_PASSWORD` dans `.env`. Les exemples `-U votre_role` ci-dessous doivent être adaptés au compte PostgreSQL disponible. **Ne pas exécuter les migrations Laravel sur cet export**, ni `composer run setup`, qui lance des migrations : le script SQL de la consigne 5 assure sa mise à niveau.
+
+Pour la page web, compiler ensuite les ressources :
+
+```sh
 npm ci
 npm run build
 ```
 
-Configurer les variables `DB_*` dans `.env`. En local, la base `testasin` a déjà été importée et appartient à `root`.
+Les sessions et le cache utilisent des fichiers ; les tâches sont synchrones. La page d’accueil ne nécessite aucune migration. L’API d’inscription utilise les tables et la configuration du service d’identité décrites dans la consigne 4.
 
-Les sessions et le cache sont stockés dans des fichiers ; les tâches utilisent le mode synchrone. Aucune migration Laravel n'est nécessaire pour afficher la page d'accueil.
-
-Les instants applicatifs sont conservés en UTC. Les dates destinées aux utilisateurs devront être affichées dans le fuseau `Africa/Porto-Novo`.
+Les instants applicatifs sont conservés en UTC. Les commandes de restitution affichent les horaires dans le fuseau `Africa/Porto-Novo`.
 
 ## Démarrage
 
@@ -37,7 +82,7 @@ Ouvrir http://localhost:8000. Pour modifier les styles en direct, lancer `npm ru
 Depuis la racine du projet :
 
 ```sh
-php artisan journal:analyser /Users/ezechiel/Projects/testasin/journal_production.log
+php artisan journal:analyser journal_production.log
 ```
 
 Le chemin est un argument obligatoire : le programme accepte tout fichier respectant le format du sujet. Le journal est lu ligne par ligne, sans modification du fichier, accès à la base ou appel au service d’identification.
@@ -165,12 +210,12 @@ Le bilan exécuté, les règles de conservation, l’arbitrage de Lokossa et les
 Pour l’appliquer à une autre copie vierge de l’export fourni, adapter le compte et le nom de base :
 
 ```sh
-createdb -U root testasin_reprise
-psql -X -U root -v ON_ERROR_STOP=1 -d testasin_reprise -f base_inscriptions.sql
-pg_dump -U root -d testasin_reprise -Fc -f avant_reparation.dump
-psql -X -U root -v ON_ERROR_STOP=1 -d testasin_reprise -f database/reparer_inscriptions.sql
+createdb -U votre_role testasin_reprise
+psql -X -U votre_role -v ON_ERROR_STOP=1 -d testasin_reprise -f base_inscriptions.sql
+pg_dump -U votre_role -d testasin_reprise -Fc -f avant_reparation.dump
+psql -X -U votre_role -v ON_ERROR_STOP=1 -d testasin_reprise -f database/reparer_inscriptions.sql
 # Rejeu : les données et les archives restent identiques.
-psql -X -U root -v ON_ERROR_STOP=1 -d testasin_reprise -f database/reparer_inscriptions.sql
+psql -X -U votre_role -v ON_ERROR_STOP=1 -d testasin_reprise -f database/reparer_inscriptions.sql
 ```
 
 Exécuter en fenêtre de maintenance : le script utilise une transaction et des verrous exclusifs. Un conflit de verrou de plus de 5 secondes ou une erreur interrompt la réparation ; `ON_ERROR_STOP` impose l’arrêt de `psql`. Le `search_path` doit désigner le schéma contenant les quatre tables du sujet, habituellement `public`. Ne pas combiner ce script avec `migrate:fresh`. Les archives et la photographie de Lokossa sont conservées dans la même base.
@@ -178,13 +223,13 @@ Exécuter en fenêtre de maintenance : le script utilise une transaction et des 
 Contrôler les résultats et consulter la liste d’arbitrage :
 
 ```sh
-psql -X -U root -d testasin_reprise -c 'SELECT code, capacite, nb_inscrits FROM centres ORDER BY code'
-psql -X -U root -d testasin_reprise -c 'SELECT * FROM reparation_numeros_table ORDER BY inscription_id'
-psql -X -U root -d testasin_reprise -c 'SELECT inscription_id, inscription_conservee_id FROM reparation_doublons_inscriptions ORDER BY inscription_id'
-psql -X -U root -d testasin_reprise -c "\copy (SELECT * FROM reparation_lokossa_arbitrage ORDER BY rang_chronologique) TO 'lokossa_arbitrage.csv' WITH (FORMAT csv, HEADER true, ENCODING 'UTF8')"
+psql -X -U votre_role -d testasin_reprise -c 'SELECT code, capacite, nb_inscrits FROM centres ORDER BY code'
+psql -X -U votre_role -d testasin_reprise -c 'SELECT * FROM reparation_numeros_table ORDER BY inscription_id'
+psql -X -U votre_role -d testasin_reprise -c 'SELECT inscription_id, inscription_conservee_id FROM reparation_doublons_inscriptions ORDER BY inscription_id'
+psql -X -U votre_role -d testasin_reprise -c "\copy (SELECT * FROM reparation_lokossa_arbitrage ORDER BY rang_chronologique) TO 'lokossa_arbitrage.csv' WITH (FORMAT csv, HEADER true, ENCODING 'UTF8')"
 ```
 
-La liste CSV contient des données nominatives : la conserver dans un emplacement privé. La liste issue de l’exécution locale et les sauvegardes se trouvent dans `storage/app/private/reparations/`, ignoré par Git. Pour restaurer l’état local d’avant la reprise dans **une nouvelle base**, utiliser `createdb -U root testasin_avant_reprise`, puis `pg_restore -U root -d testasin_avant_reprise --no-owner --no-privileges storage/app/private/reparations/avant_consigne5.dump`.
+La liste CSV contient des données nominatives : la conserver dans un emplacement privé. La liste issue de l’exécution locale et les sauvegardes se trouvent dans `storage/app/private/reparations/`, ignoré par Git. Pour restaurer l’état local d’avant la reprise dans **une nouvelle base**, utiliser `createdb -U votre_role testasin_avant_reprise`, puis `pg_restore -U votre_role -d testasin_avant_reprise --no-owner --no-privileges storage/app/private/reparations/avant_consigne5.dump`.
 
 Les tests SQL nécessitent PostgreSQL et un compte autorisé à créer des schémas. Le nom de base est obligatoire pour les activer ; ils créent puis suppriment leurs propres schémas, sans toucher aux tables importées :
 

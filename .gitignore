@@ -1,4 +1,8 @@
 *.log
+# Données du sujet et exports produits par les commandes de reprise.
+/base_inscriptions.sql
+/*.dump
+/lokossa_arbitrage.csv
 .DS_Store
 .env
 .env.backup
