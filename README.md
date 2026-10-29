@@ -2,7 +2,7 @@
 
 **Candidat : DENAKPO EZECHIEL AHOUANDJINOU**
 
-[Dépôt GitHub](https://github.com/ezechieldef/testasin) · [Énoncé](etude_de_cas_pratique.md) · [Validation du rendu](VALIDATION_RENDU.md)
+[Dépôt GitHub](https://github.com/ezechieldef/testasin) · [Énoncé](etude_de_cas_pratique.md)
 
 Ce dépôt contient la priorisation des incidents, un analyseur de journal en ligne de commande, les diagnostics reproductibles, une API Laravel 13 d’inscription corrigée, ses tests et un script PostgreSQL de réparation rejouable. Les rapports distinguent les faits observés, les résultats locaux et les actions à mener en production.
 
@@ -30,7 +30,7 @@ La reprise locale a archivé et retiré 7 doubles inscriptions, puis réattribu�
 - PostgreSQL **18** et ses outils `psql`, `createdb`, `pg_dump`, `pg_restore` pour la reprise et les tests SQL ; un compte autorisé à créer des schémas temporaires pour les tests PostgreSQL.
 - Node.js **20.19 ou supérieur compatible avec Vite 8** : `20.19+` sur la branche 20 ou `22.12+` ; npm. Ils servent à compiler les ressources de la page web, pas à exécuter l’analyse du journal.
 
-L’environnement ayant servi à la validation est détaillé dans [VALIDATION_RENDU.md](VALIDATION_RENDU.md).
+Validation depuis un clone neuf : **95 tests réussis avec les tests SQL activés**, plus **3 tests de concurrence réussis sur PostgreSQL**. La compilation web et le rejeu du script de réparation ont également été vérifiés.
 
 ## Installation
 

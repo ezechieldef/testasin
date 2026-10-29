@@ -96,4 +96,4 @@ Vous n’aurez pas le temps de tout faire. Votre priorisation s’applique aussi
    Bonus 1
    Total 20
 
-chemin du journal /Users/ezechiel/Projects/testasin/journal_production.log pour les tests
+Chemin d’exemple du journal pour les tests : journal_production.log

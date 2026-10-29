@@ -3,6 +3,16 @@
 /base_inscriptions.sql
 /*.dump
 /lokossa_arbitrage.csv
+# Notes de préparation, brouillons et configuration locale des agents.
+/EMAIL_RENDU.md
+/VALIDATION_RENDU.md
+/.private/
+/.agents/
+/.claude/
+/AGENTS.md
+/CLAUDE.md
+/.mcp.json
+/boost.json
 .DS_Store
 .env
 .env.backup
