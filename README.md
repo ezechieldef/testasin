@@ -140,7 +140,7 @@ Sur PostgreSQL, un verrou transactionnel consultatif par NPI couvre aussi le cas
 
 L’âge est le nombre d’années révolues au 31 décembre de l’année de l’épreuve. La clôture stockée en UTC est comparée à l’instant d’admission dans le service, avant l’appel externe : cet instant est accepté jusqu’à la clôture incluse, même si l’identification se termine après. Le serveur peut fonctionner dans un autre fuseau. Une date de naissance différente de celle d’un candidat déjà enregistré est refusée.
 
-La migration `create_registration_tables` initialise **une base vierge**, avec les clés étrangères et les contraintes uniques sur NPI candidat, NPI/concours et centre/numéro. Elle ne doit pas être appliquée à la base importée contenant déjà ces tables. La réparation des données existantes et l’ajout de contraintes sur l’export relèvent de la consigne 5.
+La migration `create_registration_tables` initialise **une base vierge**, avec les clés étrangères et les contraintes uniques sur NPI candidat, NPI/concours et centre/numéro. Elle ne doit pas être appliquée à la base importée contenant déjà ces tables. La mise à niveau de l’export existant est effectuée par le script SQL de la consigne 5 ci-dessous.
 
 Tests fonctionnels et concurrence, sans dépendance au service d’identification réel :
 
@@ -158,7 +158,47 @@ DB_CONNECTION=pgsql DB_DATABASE=testasin php artisan test --compact tests/Featur
 
 Adapter les variables `DB_*` à la connexion disponible. Ce test crée un schéma temporaire distinct et le supprime à la fin ; le compte PostgreSQL doit pouvoir créer des schémas. Les tables importées restent intactes. Ne pas lancer les tests fonctionnels utilisant la remise à zéro des migrations contre la base importée.
 
-### Application
+### Consigne 5 — Réparation de l’export PostgreSQL
+
+Le bilan exécuté, les règles de conservation, l’arbitrage de Lokossa et les destinataires à prévenir sont décrits dans [REPARATION_DONNEES.md](REPARATION_DONNEES.md). Le script est [database/reparer_inscriptions.sql](database/reparer_inscriptions.sql). Il a été exécuté et rejoué sur la base locale `testasin` après validation sur une copie restaurée : 7 doublons archivés et retirés, 15 numéros corrigés, 307 inscriptions conservées à Lokossa.
+
+Pour l’appliquer à une autre copie vierge de l’export fourni, adapter le compte et le nom de base :
+
+```sh
+createdb -U root testasin_reprise
+psql -X -U root -v ON_ERROR_STOP=1 -d testasin_reprise -f base_inscriptions.sql
+pg_dump -U root -d testasin_reprise -Fc -f avant_reparation.dump
+psql -X -U root -v ON_ERROR_STOP=1 -d testasin_reprise -f database/reparer_inscriptions.sql
+# Rejeu : les données et les archives restent identiques.
+psql -X -U root -v ON_ERROR_STOP=1 -d testasin_reprise -f database/reparer_inscriptions.sql
+```
+
+Exécuter en fenêtre de maintenance : le script utilise une transaction et des verrous exclusifs. Un conflit de verrou de plus de 5 secondes ou une erreur interrompt la réparation ; `ON_ERROR_STOP` impose l’arrêt de `psql`. Le `search_path` doit désigner le schéma contenant les quatre tables du sujet, habituellement `public`. Ne pas combiner ce script avec `migrate:fresh`. Les archives et la photographie de Lokossa sont conservées dans la même base.
+
+Contrôler les résultats et consulter la liste d’arbitrage :
+
+```sh
+psql -X -U root -d testasin_reprise -c 'SELECT code, capacite, nb_inscrits FROM centres ORDER BY code'
+psql -X -U root -d testasin_reprise -c 'SELECT * FROM reparation_numeros_table ORDER BY inscription_id'
+psql -X -U root -d testasin_reprise -c 'SELECT inscription_id, inscription_conservee_id FROM reparation_doublons_inscriptions ORDER BY inscription_id'
+psql -X -U root -d testasin_reprise -c "\copy (SELECT * FROM reparation_lokossa_arbitrage ORDER BY rang_chronologique) TO 'lokossa_arbitrage.csv' WITH (FORMAT csv, HEADER true, ENCODING 'UTF8')"
+```
+
+La liste CSV contient des données nominatives : la conserver dans un emplacement privé. La liste issue de l’exécution locale et les sauvegardes se trouvent dans `storage/app/private/reparations/`, ignoré par Git. Pour restaurer l’état local d’avant la reprise dans **une nouvelle base**, utiliser `createdb -U root testasin_avant_reprise`, puis `pg_restore -U root -d testasin_avant_reprise --no-owner --no-privileges storage/app/private/reparations/avant_consigne5.dump`.
+
+Les tests SQL nécessitent PostgreSQL et un compte autorisé à créer des schémas. Le nom de base est obligatoire pour les activer ; ils créent puis suppriment leurs propres schémas, sans toucher aux tables importées :
+
+```sh
+REPAIR_TEST_DATABASE=testasin php artisan test --compact tests/Feature/RepairInscriptionsTest.php
+```
+
+Les paramètres de connexion proviennent de la configuration PostgreSQL Laravel, avec `REPAIR_TEST_DATABASE` comme nom de base. Sans cette variable, les tests SQL sont signalés comme ignorés. Pour tout vérifier, y compris les tests SQL :
+
+```sh
+REPAIR_TEST_DATABASE=testasin php artisan test --compact
+```
+
+### Vérification générale
 
 ```sh
 php artisan db:show
