@@ -2,11 +2,13 @@
 
 ## Source et exécution
 
-Le script [database/reparer_inscriptions.sql](database/reparer_inscriptions.sql) cible PostgreSQL et les tables de l’export du sujet. La source disponible dans cet espace de travail était la base locale `testasin`, déjà importée. Le fichier initial `base_inscriptions.sql` n’est pas présent dans le dépôt ; il n’a donc pas été possible de comparer son empreinte à celle de cette base.
+Le script [database/reparer_inscriptions.sql](database/reparer_inscriptions.sql) cible PostgreSQL et les tables de l’export du sujet. Le fichier original `base_inscriptions.sql`, fourni séparément et exclu du dépôt parce qu’il contient des données nominatives, porte l’empreinte SHA-256 `f4e5771ff0dda8d7d0091d97c6456f2a1f43e4ce74c713c480c5e9a317290a37`. Il a été importé dans un schéma PostgreSQL isolé pour vérifier la réparation et son rejeu directement sur la source du sujet.
 
 Avant toute modification, une sauvegarde complète a été créée dans `storage/app/private/reparations/avant_consigne5.dump`, au format `pg_dump` personnalisé. Son SHA-256 est `cfa973de4d7c2abdeed8e2fe38bef80d445a4d883fe6daf8c9e6cabdb24a77e4`. Les données nominatives et les sauvegardes restent dans le stockage privé ignoré par Git.
 
 La sauvegarde a été restaurée dans une base isolée pour valider le script et son rejeu. Après ces contrôles, le script a été appliqué deux fois à `testasin`. Les empreintes des inscriptions et des deux tables d’audit sont identiques avant et après le second passage. Les journaux d’exécution, empreintes et sauvegarde après réparation sont conservés dans le même répertoire privé.
+
+Le test exécuté sur l’export original confirme les mêmes volumes de reprise : 6 400 inscriptions avant, 6 393 après, 7 doublons archivés et 15 numéros réattribués. Il vérifie aussi que les candidats restent inchangés, que les 307 identifiants d’inscription de Lokossa sont conservés avec une capacité de 300, et que le second passage conserve les données et les audits à l’identique.
 
 ## Résultats constatés
 
@@ -80,3 +82,11 @@ Ces destinataires et messages sont préparés ; aucun courriel ni autre notifica
 Le [README](README.md) donne les commandes de sauvegarde, application, rejeu et export de la liste. Les tests [RepairInscriptionsTest](tests/Feature/RepairInscriptionsTest.php) utilisent PostgreSQL dans des schémas temporaires avec une fixture synthétique sans données du sujet. Ils couvrent la conservation de Lokossa, la traçabilité, le rejeu, les contraintes d’unicité, le jour d’épreuve, les séquences, l’annulation complète d’une réparation en erreur, les compteurs lors des transferts et retraits, deux admissions SQL simultanées pour une dernière place et la compatibilité avec l’API de la consigne 4.
 
 Les choix SQL s’appuient sur la documentation PostgreSQL des [contraintes](https://www.postgresql.org/docs/18/ddl-constraints.html), [déclencheurs](https://www.postgresql.org/docs/18/sql-createtrigger.html) et [verrous](https://www.postgresql.org/docs/18/explicit-locking.html).
+
+Pour inclure le contrôle de l’export original dans les tests, placer le fichier fourni à la racine puis lancer :
+
+```sh
+REPAIR_TEST_DATABASE=testasin REPAIR_TEST_EXPORT=base_inscriptions.sql php artisan test --compact tests/Feature/RepairInscriptionsTest.php
+```
+
+L’import et la réparation de ce test s’effectuent uniquement dans son schéma temporaire. Sans `REPAIR_TEST_EXPORT`, seul ce contrôle du fichier original est ignoré ; les tests sur les fixtures synthétiques restent disponibles.

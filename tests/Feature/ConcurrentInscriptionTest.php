@@ -31,6 +31,8 @@ class ConcurrentInscriptionTest extends TestCase
         config(['database.default' => 'registration_test', 'database.connections.registration_test' => $connection]);
         $migration = require database_path('migrations/2026_10_29_163450_create_registration_tables.php');
         $migration->up();
+        $guards = require database_path('migrations/2026_10_29_172816_strengthen_registration_database_guards.php');
+        $guards->up();
     }
 
     protected function tearDown(): void

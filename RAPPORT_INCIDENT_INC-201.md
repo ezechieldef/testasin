@@ -120,9 +120,9 @@ Le traitement est transactionnel et rejouable, avec des contrôles d’arrêt su
 
 ### Vérifications réalisées
 
-- La revue de la consigne 4 a exécuté **33 tests fonctionnels et concurrents avec succès**, dont un appel à un serveur local volontairement lent.
+- La revue de la consigne 4 a exécuté **35 tests fonctionnels et concurrents avec succès**, dont un appel à un serveur local volontairement lent.
 - Les **3 tests de concurrence exécutés sur PostgreSQL** ont réussi : dernières places d’un centre, double soumission et même NPI dans deux centres pour des épreuves le même jour.
-- Pour ce rapport, les **12 tests SQL de réparation sur un schéma PostgreSQL isolé** ont réussi : rejeu, unicités, archivage, conservation de Lokossa, rollback et compatibilité avec l’API corrigée.
+- Pour ce rapport, les **17 tests SQL de réparation sur un schéma PostgreSQL isolé** ont réussi, dont la réparation et le rejeu sur l’export original du sujet : rejeu, unicités, archivage, conservation de Lokossa, rollback et compatibilité avec l’API corrigée.
 - Les contrôles en lecture seule de la base locale réparée confirment zéro groupe de numéros ou de candidatures en double, ainsi que les volumes d’audit présentés ci-dessus.
 
 Commandes de validation, depuis la racine du projet :

@@ -177,6 +177,34 @@ class RegisterInscriptionTest extends TestCase
         $this->postJson('/api/inscriptions', $this->payload())->assertConflict();
         $this->assertDatabaseCount('candidats', 1);
         $this->assertDatabaseCount('inscriptions', 1);
+        Http::assertSentCount(1);
+    }
+
+    public function test_full_centre_is_rejected_without_calling_identity(): void
+    {
+        $this->prepareCampaign(0);
+
+        $this->postJson('/api/inscriptions', $this->payload())->assertConflict()
+            ->assertJsonPath('message', 'La capacité du centre est atteinte.');
+
+        $this->assertDatabaseCount('inscriptions', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_capacity_is_checked_again_when_it_changes_during_identity_lookup(): void
+    {
+        $this->prepareCampaign(1);
+        Http::fake(['identity.example/identite/*' => function () {
+            DB::table('centres')->where('code', 'P')->update(['capacite' => 0]);
+
+            return Http::response(['nom' => 'DOSSOU', 'prenoms' => 'Alice']);
+        }]);
+
+        $this->postJson('/api/inscriptions', $this->payload())->assertConflict();
+
+        $this->assertDatabaseCount('inscriptions', 0);
+        $this->assertDatabaseCount('candidats', 0);
+        Http::assertSentCount(1);
     }
 
     public function test_missing_identity_configuration_returns_503_without_creating_records(): void
@@ -234,6 +262,7 @@ class RegisterInscriptionTest extends TestCase
         $this->postJson('/api/inscriptions', $this->payload())->assertUnprocessable();
         $this->assertDatabaseCount('inscriptions', 0);
         $this->assertDatabaseHas('candidats', ['date_naissance' => '1990-01-01']);
+        Http::assertNothingSent();
     }
 
     #[TestWith(['npi', '12'])]

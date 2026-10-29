@@ -19,6 +19,9 @@ class RegisterInscription
         $contest = DB::table('concours')->where('code', $contestCode)->first();
         abort_if($contest === null, 400, 'Concours inconnu.');
         $this->checkEligibility($contest, $birthDate, $receivedAt);
+        $centre = DB::table('centres')->where('code', $centreCode)->first();
+        abort_if($centre === null, 400, 'Centre inconnu.');
+        $this->checkAvailability($npi, $birthDate, $contest, $centre);
         $identity = $this->identityClient->verify($npi);
 
         return DB::transaction(function () use ($npi, $birthDate, $contestCode, $centreCode, $receivedAt, $identity): array {
@@ -38,18 +41,7 @@ class RegisterInscription
             $centre = DB::table('centres')->where('code', $centreCode)->lockForUpdate()->first();
             abort_if($centre === null, 400, 'Centre inconnu.');
 
-            $alreadyRegistered = DB::table('inscriptions')
-                ->join('concours', 'concours.id', '=', 'inscriptions.concours_id')
-                ->where('inscriptions.npi', $npi)
-                ->where(function (Builder $query) use ($contest): void {
-                    $query->where('concours.id', $contest->id)->orWhere('concours.date_epreuve', $contest->date_epreuve);
-                })->exists();
-            abort_if($alreadyRegistered, 409, 'Une inscription existe déjà pour ce concours ou ce jour d’épreuve.');
-            abort_if(DB::table('inscriptions')->where('centre_id', $centre->id)->count() >= $centre->capacite,
-                409, 'La capacité du centre est atteinte.');
-            $candidate = DB::table('candidats')->where('npi', $npi)->first();
-            abort_if($candidate !== null && $candidate->date_naissance !== $birthDate,
-                422, 'La date de naissance ne correspond pas au candidat enregistré.');
+            $candidate = $this->checkAvailability($npi, $birthDate, $contest, $centre);
 
             $maximum = DB::table('inscriptions')->where('centre_id', $centre->id)
                 ->selectRaw('MAX(CAST(SUBSTR(numero_table, 3) AS INTEGER)) AS maximum')->value('maximum');
@@ -71,6 +63,24 @@ class RegisterInscription
 
             return ['id' => $id, 'numero_table' => $tableNumber, 'statut' => $status];
         }, attempts: 5);
+    }
+
+    private function checkAvailability(string $npi, string $birthDate, stdClass $contest, stdClass $centre): ?stdClass
+    {
+        $alreadyRegistered = DB::table('inscriptions')
+            ->join('concours', 'concours.id', '=', 'inscriptions.concours_id')
+            ->where('inscriptions.npi', $npi)
+            ->where(function (Builder $query) use ($contest): void {
+                $query->where('concours.id', $contest->id)->orWhere('concours.date_epreuve', $contest->date_epreuve);
+            })->exists();
+        abort_if($alreadyRegistered, 409, 'Une inscription existe déjà pour ce concours ou ce jour d’épreuve.');
+        abort_if(DB::table('inscriptions')->where('centre_id', $centre->id)->count() >= $centre->capacite,
+            409, 'La capacité du centre est atteinte.');
+        $candidate = DB::table('candidats')->where('npi', $npi)->first();
+        abort_if($candidate !== null && $candidate->date_naissance !== $birthDate,
+            422, 'La date de naissance ne correspond pas au candidat enregistré.');
+
+        return $candidate;
     }
 
     private function checkEligibility(stdClass $contest, string $birthDate, CarbonImmutable $receivedAt): void

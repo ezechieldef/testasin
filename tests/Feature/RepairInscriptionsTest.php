@@ -64,6 +64,36 @@ class RepairInscriptionsTest extends TestCase
         $this->assertSame($before, $this->snapshot());
     }
 
+    public function test_original_export_is_repaired_without_changing_candidates_or_lokossa_membership(): void
+    {
+        $export = getenv('REPAIR_TEST_EXPORT');
+        if (! is_string($export) || $export === '') {
+            $this->markTestSkipped('Définir REPAIR_TEST_EXPORT avec le chemin de l’export original du sujet.');
+        }
+        $this->assertFileIsReadable($export);
+        $this->assertSame('f4e5771ff0dda8d7d0091d97c6456f2a1f43e4ce74c713c480c5e9a317290a37', hash_file('sha256', $export));
+        DB::unprepared(file_get_contents($export));
+        $this->assertDatabaseCount('inscriptions', 6400);
+        $candidates = hash('sha256', DB::table('candidats')->orderBy('id')->get()->toJson());
+        $lokossaId = DB::table('centres')->where('code', 'L')->value('id');
+        $lokossaRegistrations = DB::table('inscriptions')->where('centre_id', $lokossaId)->orderBy('id')->pluck('id')->all();
+
+        $this->repair();
+
+        $this->assertDatabaseCount('inscriptions', 6393);
+        $this->assertDatabaseCount('reparation_doublons_inscriptions', 7);
+        $this->assertDatabaseCount('reparation_numeros_table', 15);
+        $this->assertDatabaseCount('reparation_lokossa_arbitrage', 307);
+        $this->assertDatabaseHas('centres', ['code' => 'L', 'capacite' => 300, 'nb_inscrits' => 307]);
+        $this->assertSame($lokossaRegistrations, DB::table('inscriptions')->where('centre_id', $lokossaId)->orderBy('id')->pluck('id')->all());
+        $this->assertSame($candidates, hash('sha256', DB::table('candidats')->orderBy('id')->get()->toJson()));
+        $beforeReplay = array_map(fn (string $value): string => hash('sha256', $value), $this->snapshot());
+
+        $this->repair();
+
+        $this->assertSame($beforeReplay, array_map(fn (string $value): string => hash('sha256', $value), $this->snapshot()));
+    }
+
     public function test_duplicate_registration_is_rejected_and_the_capacity_counter_is_rolled_back(): void
     {
         $this->repair();

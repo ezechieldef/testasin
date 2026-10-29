@@ -30,7 +30,7 @@ La reprise locale a archivé et retiré 7 doubles inscriptions, puis réattribu�
 - PostgreSQL **18** et ses outils `psql`, `createdb`, `pg_dump`, `pg_restore` pour la reprise et les tests SQL ; un compte autorisé à créer des schémas temporaires pour les tests PostgreSQL.
 - Node.js **20.19 ou supérieur compatible avec Vite 8** : `20.19+` sur la branche 20 ou `22.12+` ; npm. Ils servent à compiler les ressources de la page web, pas à exécuter l’analyse du journal.
 
-Validation depuis un clone neuf : **95 tests réussis avec les tests SQL activés**, plus **3 tests de concurrence réussis sur PostgreSQL**. La compilation web et le rejeu du script de réparation ont également été vérifiés.
+Validation : **103 tests réussis avec les tests PostgreSQL et l’export original activés**, plus **3 tests de concurrence réussis sur PostgreSQL**. La compilation web et le rejeu du script de réparation ont également été vérifiés.
 
 ## Installation
 
@@ -179,13 +179,13 @@ Ils utilisent un journal synthétique et, pour `--base`, une base SQLite en mém
 
 Configurer `IDENTITY_SERVICE_URL` dans `.env`. Le service doit répondre à `GET /identite/{npi}` avec `{"nom":"DOSSOU","prenoms":"Alice"}` ou un statut 404 pour un NPI inconnu. La création renvoie 201 avec `data.id`, `data.numero_table` et `data.statut`. Les erreurs de forme ou références inconnues renvoient 400, les conflits de capacité ou d’inscription 409, les refus d’âge, de clôture ou d’identité 422. Une configuration d’identification absente renvoie 503.
 
-L’appel externe précède la transaction, avec des délais de connexion et de réponse de 5 secondes, sans répétition ni redirection. Une panne réseau, un dépassement du délai, une réponse non exploitable ou une erreur du service enregistre `en_attente_verification` ; une identité reconnue enregistre `validee`. Pour un nouveau candidat en attente, les noms restent vides jusqu’à vérification. Un 404 refuse l’inscription. Le traitement ultérieur des inscriptions en attente reste à implémenter.
+Les doublons, conflits de jour d’épreuve, centres pleins et dates de naissance incohérentes sont contrôlés avant l’appel externe. Ces contrôles sont répétés dans la transaction sous verrou pour couvrir les changements concurrents. L’appel externe précède la transaction, avec des délais de connexion et de réponse de 5 secondes, sans répétition ni redirection. Une panne réseau, un dépassement du délai, une réponse non exploitable ou une erreur du service enregistre `en_attente_verification` ; une identité reconnue enregistre `validee`. Pour un nouveau candidat en attente, les noms restent vides jusqu’à vérification. Un 404 refuse l’inscription. Le traitement ultérieur des inscriptions en attente reste à implémenter.
 
 Sur PostgreSQL, un verrou transactionnel consultatif par NPI couvre aussi le cas où le candidat n’existe pas encore, et empêche deux inscriptions incompatibles dans des centres différents. Un verrou partagé protège le concours et un verrou exclusif protège le centre. La vérification des inscriptions existantes, le contrôle de capacité tous concours et statuts confondus, le calcul du prochain numéro et les écritures sont exécutés dans cette même transaction. Les verrous sont libérés au commit ou au rollback ; tous les chemins d’enregistrement doivent passer par ce service. SQLite est également pris en charge : une écriture initiale acquiert son verrou d’écriture avant les lectures métier.
 
 L’âge est le nombre d’années révolues au 31 décembre de l’année de l’épreuve. La clôture stockée en UTC est comparée à l’instant d’admission dans le service, avant l’appel externe : cet instant est accepté jusqu’à la clôture incluse, même si l’identification se termine après. Le serveur peut fonctionner dans un autre fuseau. Une date de naissance différente de celle d’un candidat déjà enregistré est refusée.
 
-La migration `create_registration_tables` initialise **une base vierge**, avec les clés étrangères et les contraintes uniques sur NPI candidat, NPI/concours et centre/numéro. Elle ne doit pas être appliquée à la base importée contenant déjà ces tables. La mise à niveau de l’export existant est effectuée par le script SQL de la consigne 5 ci-dessous.
+Les migrations initialisent **une base vierge**, avec les clés étrangères et les contraintes uniques sur NPI candidat, NPI/concours et centre/numéro. Sur PostgreSQL, la migration `strengthen_registration_database_guards` ajoute aussi l’unicité NPI/jour d’épreuve, la cohérence de cette date avec le concours et les compteurs de capacité atomiques, comme le script de réparation. Les tests `RegistrationSchemaTest` exercent les mêmes écritures SQL sur les deux chemins. SQLite utilise les contrôles transactionnels applicatifs pour le jour d’épreuve et la capacité. Ne pas exécuter les migrations initiales sur l’export existant : sa mise à niveau est effectuée par le script SQL de la consigne 5 ci-dessous.
 
 Tests fonctionnels et concurrence, sans dépendance au service d’identification réel :
 
@@ -241,6 +241,12 @@ Les paramètres de connexion proviennent de la configuration PostgreSQL Laravel,
 
 ```sh
 REPAIR_TEST_DATABASE=testasin php artisan test --compact
+```
+
+Pour vérifier aussi la réparation et le rejeu sur l’export original du sujet, avec contrôle de son empreinte et conservation des candidats et de toutes les inscriptions de Lokossa :
+
+```sh
+REPAIR_TEST_DATABASE=testasin REPAIR_TEST_EXPORT=base_inscriptions.sql php artisan test --compact
 ```
 
 ### Consigne 6 — Rapport d’incident
