@@ -2,6 +2,10 @@
 
 return [
 
+    'identity' => [
+        'url' => env('IDENTITY_SERVICE_URL'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

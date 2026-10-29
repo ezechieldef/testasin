@@ -119,6 +119,45 @@ php artisan test --compact tests/Feature/TraceJournalTest.php tests/Feature/Diag
 
 Ils utilisent un journal synthétique et, pour `--base`, une base SQLite en mémoire construite par le test. La base métier locale n’est pas utilisée par ces tests.
 
+### Consigne 4 — Enregistrement d’une inscription
+
+`POST /api/inscriptions` accepte un corps JSON :
+
+```json
+{
+  "npi": "3076016910",
+  "date_naissance": "1991-06-20",
+  "concours": "TRESOR",
+  "centre": "P"
+}
+```
+
+Configurer `IDENTITY_SERVICE_URL` dans `.env`. Le service doit répondre à `GET /identite/{npi}` avec `{"nom":"DOSSOU","prenoms":"Alice"}` ou un statut 404 pour un NPI inconnu. La création renvoie 201 avec `data.id`, `data.numero_table` et `data.statut`. Les erreurs de forme ou références inconnues renvoient 400, les conflits de capacité ou d’inscription 409, les refus d’âge, de clôture ou d’identité 422. Une configuration d’identification absente renvoie 503.
+
+L’appel externe précède la transaction, avec des délais de connexion et de réponse de 5 secondes, sans répétition ni redirection. Une panne réseau, un dépassement du délai, une réponse non exploitable ou une erreur du service enregistre `en_attente_verification` ; une identité reconnue enregistre `validee`. Pour un nouveau candidat en attente, les noms restent vides jusqu’à vérification. Un 404 refuse l’inscription. Le traitement ultérieur des inscriptions en attente reste à implémenter.
+
+Sur PostgreSQL, un verrou transactionnel consultatif par NPI couvre aussi le cas où le candidat n’existe pas encore, et empêche deux inscriptions incompatibles dans des centres différents. Un verrou partagé protège le concours et un verrou exclusif protège le centre. La vérification des inscriptions existantes, le contrôle de capacité tous concours et statuts confondus, le calcul du prochain numéro et les écritures sont exécutés dans cette même transaction. Les verrous sont libérés au commit ou au rollback ; tous les chemins d’enregistrement doivent passer par ce service. SQLite est également pris en charge : une écriture initiale acquiert son verrou d’écriture avant les lectures métier.
+
+L’âge est le nombre d’années révolues au 31 décembre de l’année de l’épreuve. La clôture stockée en UTC est comparée à l’instant d’admission dans le service, avant l’appel externe : cet instant est accepté jusqu’à la clôture incluse, même si l’identification se termine après. Le serveur peut fonctionner dans un autre fuseau. Une date de naissance différente de celle d’un candidat déjà enregistré est refusée.
+
+La migration `create_registration_tables` initialise **une base vierge**, avec les clés étrangères et les contraintes uniques sur NPI candidat, NPI/concours et centre/numéro. Elle ne doit pas être appliquée à la base importée contenant déjà ces tables. La réparation des données existantes et l’ajout de contraintes sur l’export relèvent de la consigne 5.
+
+Tests fonctionnels et concurrence, sans dépendance au service d’identification réel :
+
+```sh
+php artisan test --compact tests/Feature/RegisterInscriptionTest.php tests/Feature/ConcurrentInscriptionTest.php
+```
+
+Par défaut, les tests fonctionnels utilisent SQLite en mémoire et les tests concurrents un fichier SQLite temporaire. Les tests concurrents démarrent plusieurs processus PHP, chacun envoyant une requête HTTP au noyau Laravel. Une barrière dans le faux service d’identification garantit que toutes les requêtes ont commencé avant leur entrée dans la transaction. Ils vérifient les places disponibles, l’unicité des numéros, les doubles soumissions et le conflit de jour d’épreuve entre centres. Le test réseau réel lance uniquement un serveur local qui ne répond pas à temps ; il dure environ 5 secondes.
+
+Pour vérifier les verrous PostgreSQL avec la connexion locale :
+
+```sh
+DB_CONNECTION=pgsql DB_DATABASE=testasin php artisan test --compact tests/Feature/ConcurrentInscriptionTest.php
+```
+
+Adapter les variables `DB_*` à la connexion disponible. Ce test crée un schéma temporaire distinct et le supprime à la fin ; le compte PostgreSQL doit pouvoir créer des schémas. Les tables importées restent intactes. Ne pas lancer les tests fonctionnels utilisant la remise à zéro des migrations contre la base importée.
+
 ### Application
 
 ```sh
